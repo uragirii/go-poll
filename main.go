@@ -35,6 +35,8 @@ func mockDataSetup() {
       Options: options,
     }
   }
+
+  fmt.Printf("Created %v mock data", len(mockdb))
 }
 
 func main() {
