@@ -148,7 +148,27 @@ func main() {
     if !valid {
       ctx.JSON(http.StatusNotFound, gin.H{"error" : "poll not found", "message" : fmt.Sprintf("Poll with ID %v not found", id)})
     }else {
-      ctx.JSON(http.StatusOK, poll)
+
+      user, ok := getUserFromContext(ctx);
+
+      if !ok {
+        return;
+      }
+
+      submitted:= hasUserSubmitted(user, id)
+
+      if !submitted {
+        ctx.JSON(http.StatusOK, poll)
+        return;
+      }
+
+      type PollWithSubmissions struct {
+        PollQuestion
+        Submissions [2] int `json:"submissions"` 
+      }
+
+      ctx.JSON(http.StatusOK, PollWithSubmissions{PollQuestion: poll, Submissions: poll.submissions})
+
     }
   })
 
