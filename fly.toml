@@ -1,9 +1,9 @@
-# fly.toml app configuration file generated for solitary-dream-2044 on 2023-08-15T22:18:09+05:30
+# fly.toml app configuration file generated for vote-go on 2023-08-16T20:26:38+05:30
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = "solitary-dream-2044"
+app = "vote-go"
 primary_region = "sin"
 
 [build]
@@ -13,6 +13,10 @@ primary_region = "sin"
 [env]
   PORT = "8080"
 
+[[mounts]]
+  source = "batak"
+  destination = "/data"
+
 [http_service]
   internal_port = 8080
   force_https = true
@@ -20,7 +24,3 @@ primary_region = "sin"
   auto_start_machines = true
   min_machines_running = 0
   processes = ["app"]
-
-[mounts]
-  source="batak"
-  destination="/data"

@@ -135,7 +135,7 @@ func main() {
   // mockDataSetup()
   // r := gin.Default()
 
-  db.NewPoll("data/go.db");
+  db.NewPoll("/data/go.db");
 
   return;
 
