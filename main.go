@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"os"
 	"time"
 
 	"simple-server/db"
+	"simple-server/poll"
 
 	"github.com/gin-gonic/gin"
 )
@@ -134,10 +136,53 @@ func hasUserSubmitted(user User, pollId string) bool {
 func main() {
   // mockDataSetup()
   // r := gin.Default()
+  isFlyEnv := os.Getenv("IS_FLY_ENV")
 
-  db.NewPoll("/data/go.db");
+  dbString := "sqldb/go.db"
 
-  return;
+  if isFlyEnv == "true" {
+    dbString = "/data/go.db"
+  }
+
+  pollDb, err := db.NewPoll(dbString);
+
+  if err != nil {
+    fmt.Println("Error creating connection to db");
+    fmt.Println(err);
+    os.Exit(1);
+    return;
+  }
+
+  var polls []poll.PollQuestion
+
+  if polls,err= pollDb.GetAll(); err!=nil {
+    fmt.Println("Error reading polls from db");
+    fmt.Println(err);
+    os.Exit(1);
+    return;
+  }
+
+  if len(polls) == 0 {
+    // create dummy polls
+    for i := 0; i < 10; i++ {
+      _, err := pollDb.Create(fmt.Sprintf("This is the question number %v", i+1), [2]string{"Option1", "Option2"})
+      if err != nil {
+        fmt.Println("Error creating poll ");
+        fmt.Println(err);
+        os.Exit(1);
+        return;
+      }
+    }
+  }
+
+  if polls,err= pollDb.GetAll(); err!=nil {
+    fmt.Println("Error reading polls from db");
+    fmt.Println(err);
+    os.Exit(1);
+    return;
+  }
+
+  fmt.Println(polls);
 
   // just here for testing purposes
   // r.GET("/ping", func(c *gin.Context) {

@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"simple-server/poll"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -61,4 +62,37 @@ func (p *Poll) Create(question string, options [2]string) (int, error) {
 	}
 	
 	return int(id),nil
+}
+
+func (p *Poll) GetAll() ([]poll.PollQuestion, error) {
+	res, err:= p.db.Query("SELECT * FROM PollQuestion;");
+	
+	if err != nil {
+		fmt.Println("Error getting all the PollQuestions");
+		return nil, err;
+	}
+
+	defer res.Close()
+
+	var rows []poll.PollQuestion
+
+	for res.Next() {
+		data := poll.PollQuestion{}
+
+		var option1 string
+		var option2 string
+		var option1Count int
+		var option2Count int
+
+		err = res.Scan(&data.Id, &data.Question, &option1, &option2, &option1Count, &option2Count);
+
+		if err != nil{
+			fmt.Println("Error while scanning row of PollQuestion");
+			return nil, err
+		}
+		data.Options = [2]string{option1, option2}
+		data.AddSubmissions(option1Count, option2Count)
+		rows = append(rows, data)
+	}
+	return rows, nil
 }
