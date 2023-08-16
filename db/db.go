@@ -17,6 +17,10 @@ CREATE TABLE IF NOT EXISTS PollQuestion (
   option1Count INTEGER DEFAULT 0,
   option2Count INTEGER DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS User (
+  id TEXT PRIMARY KEY NOT NULL,
+  selectedOptions TEXT DEFAULT ''
+);
 `
 
 type Poll struct {
@@ -35,11 +39,11 @@ func NewPoll(file string) (*Poll, error) {
 	fmt.Printf("Database connection to '%v' completed\n", file)
 
 	if _,err := db.Exec(create); err !=nil {
-		fmt.Println("Error creating PollQuestion table");
+		fmt.Println("Error creating PollQuestion/User table");
 		return nil, err;
 	}
 
-	fmt.Println("Created PollQuestion table")
+	fmt.Println("Created PollQuestion & User table")
 
 	return &Poll{
 		db: db,
@@ -96,3 +100,63 @@ func (p *Poll) GetAll() ([]poll.PollQuestion, error) {
 	}
 	return rows, nil
 }
+
+
+func (p *Poll) CreateUser() (poll.User, error) {
+	id:= poll.RandUserId();
+	_, err:= p.db.Exec("INSERT INTO User (id) VALUES (?)", id);
+
+	if err != nil {
+		fmt.Println("Error inserting a new user");
+		return poll.User{}, err
+	}
+
+	user, err:= p.GetUser(id);
+
+	if err != nil {
+		fmt.Println("Error getting the created user");
+		return poll.User{}, err
+	}
+
+	return user, nil
+}
+
+func (p *Poll) GetUser(id string) (poll.User, error) {
+	row := p.db.QueryRow("SELECT * FROM User WHERE id=?", id);
+
+	var userId string;
+	var submittedPolls string;
+
+	err := row.Scan(&userId, &submittedPolls);
+
+	if err == sql.ErrNoRows {
+		fmt.Printf("User with Id %v not found", id);
+		return poll.User{}, err
+	}
+
+
+	return poll.User{Id: userId ,SubmittedPolls: poll.ParseIds(submittedPolls) }, err
+}
+
+func (p *Poll) Get(id string) (poll.PollQuestion, error) {
+	row := p.db.QueryRow("SELECT * FROM PollQuestion WHERE id=?", id);
+	
+	data := poll.PollQuestion{}
+
+	var option1 string
+	var option2 string
+	var option1Count int
+	var option2Count int
+
+	err := row.Scan(&data.Id, &data.Question, &option1, &option2, &option1Count, &option2Count);
+
+	if err  == sql.ErrNoRows{
+		fmt.Printf("Poll with Id %v not found", id);
+		return data, err
+	}
+	data.Options = [2]string{option1, option2}
+	data.AddSubmissions(option1Count, option2Count)
+
+	return data, err
+
+} 

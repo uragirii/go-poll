@@ -1,11 +1,10 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"os"
-	"time"
 
 	"simple-server/db"
 	"simple-server/poll"
@@ -13,129 +12,70 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
-type PollQuestion struct {
-  Id string `json:"id"`
-  Question string `json:"question"`
-  Options [2]string `json:"options"`
-  submissions [2]int
-}
-
-type User struct {
-  Id string `json:"id"`
-  submittedPolls []string 
-}
-
-func init() {
-  rand.Seed(time.Now().UnixNano())
-}
-
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-// taken from Stack overflow answer https://stackoverflow.com/a/22892986/8077711
-func randSeq(n int) string {
-  b := make([]rune, n)
-  for i := range b {
-      b[i] = letters[rand.Intn(len(letters))]
-  }
-  return string(b)
-}
-
-
-func idFactory() func () string {
-  i :=0
-
-  return func () string {
-    i++;
-    return fmt.Sprintf("%v",i)
-  }
-}
-
-var mockdb = make(map[string]PollQuestion)
-var mockUserdb = make(map[string]User)
-
-func mockDataSetup() {
-  idGenerator := idFactory()
-  for idx:=0; idx<10;idx++ {
-    options:= [2]string {"Option 1", "Option 2"}
-    id:= idGenerator()
-    mockdb[id] = PollQuestion{
-      Id: id,
-      Question: fmt.Sprintf("This is the quesiton number %v", idx),
-      Options: options,
-      submissions: [2]int {0,0},
-    }
-  }
-
-  fmt.Printf("Created %v mock data", len(mockdb))
-}
-
-func VerifyCookie () gin.HandlerFunc {
-  
+func VerifyCookie (pollDb *db.Poll) gin.HandlerFunc {
 
   return func(ctx *gin.Context) {
-    assingCookie:= func ()  {
-      id := randSeq(10)
-      ctx.SetCookie("x-user-id", id, 86400, "/","", false, false)
-      user:=User{Id: id}
-      mockUserdb[id] = user
-      ctx.Set("user", user)
-    }
 
     if cookie, err := ctx.Cookie("x-user-id"); err == nil {
-      if user, ok:= mockUserdb[cookie]; ok {
-        ctx.Set("user", user)
+
+      if user, err := pollDb.GetUser(cookie); err == nil {
+        ctx.Set("user", user);
         ctx.Next();
-        return
+        return;
       }
-      assingCookie()
-      ctx.Next()
+
+      fmt.Println("Cannot find user", err);
+      ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error" :"internal server error", "message" : "couldn't find the user"});
       return;
     }
-    assingCookie()
-    ctx.Next()
-    
+    // if no cookie is set we set the cookie
+    if user, err:= pollDb.CreateUser(); err == nil {
+      ctx.SetCookie("x-user-id", user.Id, 86400, "/","", false, false)
+      ctx.Set("user", user);
+      ctx.Next();
+      return;
+    }
+    fmt.Println("Cannot create user");
+    ctx.JSON(http.StatusInternalServerError, gin.H{"error" :"internal server error", "message" : "cannot create new user"});
+
   }
 }
 
-func getUserFromContext(ctx  *gin.Context) (User, bool) {
-  maybeUser, ok := ctx.Get("user")
+// func getUserFromContext(ctx  *gin.Context) (User, bool) {
+//   maybeUser, ok := ctx.Get("user")
 
-    if !ok {
-      // not possible
-      ctx.JSON(http.StatusInternalServerError, gin.H{"error" : "something went wrong", "message" : "Unable to recognise the user"})
-      return User{}, false;
-    }
+//     if !ok {
+//       // not possible
+//       ctx.JSON(http.StatusInternalServerError, gin.H{"error" : "something went wrong", "message" : "Unable to recognise the user"})
+//       return User{}, false;
+//     }
 
-    user, ok := maybeUser.(User);
+//     user, ok := maybeUser.(User);
 
-    if !ok {
-       // not possible
-       ctx.JSON(http.StatusInternalServerError, gin.H{"error" : "something went wrong", "message" : "Unable to recognise the user"})
-       return User{}, false;
-    }
+//     if !ok {
+//        // not possible
+//        ctx.JSON(http.StatusInternalServerError, gin.H{"error" : "something went wrong", "message" : "Unable to recognise the user"})
+//        return User{}, false;
+//     }
 
-    return user, true
-}
+//     return user, true
+// }
 
-func hasUserSubmitted(user User, pollId string) bool {
-  findInPollId:= func (slice []string, id string) bool  {
-    for idx := range(slice){
-      if slice[idx] == id{ 
-        return true
-      }
-    }
-    return false
-  }
+// func hasUserSubmitted(user User, pollId string) bool {
+//   findInPollId:= func (slice []string, id string) bool  {
+//     for idx := range(slice){
+//       if slice[idx] == id{
+//         return true
+//       }
+//     }
+//     return false
+//   }
 
-  return findInPollId(user.submittedPolls, pollId)
+//   return findInPollId(user.submittedPolls, pollId)
 
-  
-}
+// }
 
 func main() {
-  // mockDataSetup()
-  // r := gin.Default()
   isFlyEnv := os.Getenv("IS_FLY_ENV")
 
   dbString := "sqldb/go.db"
@@ -163,6 +103,7 @@ func main() {
   }
 
   if len(polls) == 0 {
+    fmt.Println("Creating new dummy polls")
     // create dummy polls
     for i := 0; i < 10; i++ {
       _, err := pollDb.Create(fmt.Sprintf("This is the question number %v", i+1), [2]string{"Option1", "Option2"})
@@ -182,46 +123,63 @@ func main() {
     return;
   }
 
-  fmt.Println(polls);
+  fmt.Printf("Created %v polls\n", len(polls));
+
+  r := gin.Default()
 
   // just here for testing purposes
-  // r.GET("/ping", func(c *gin.Context) {
-  //   c.JSON(http.StatusOK, gin.H{
-  //     "message": "pong",
-  //   })
-  // })
+  r.GET("/ping", func(c *gin.Context) {
+    c.JSON(http.StatusOK, gin.H{
+      "message": "pong",
+    })
+  })
 
-  // r.GET("/poll/:id", VerifyCookie() ,func(ctx *gin.Context) {
-  //   id:= ctx.Params.ByName("id")
-  //   poll, valid := mockdb[id]
+  r.GET("/poll/:id", VerifyCookie(pollDb) ,func(ctx *gin.Context) {
+    id:= ctx.Params.ByName("id")
+
+    poll, err := pollDb.Get(id);
+
+    if err == sql.ErrNoRows {
+      ctx.JSON(http.StatusNotFound, gin.H{"error" : "poll not found", "message" : fmt.Sprintf("Poll with ID %v not found", id)})
+      return;
+    }
+
+    if err !=nil {
+      fmt.Println("Error while getting poll.id", id, err)
+      ctx.JSON(http.StatusInternalServerError, gin.H{"error" :"internal server error", "message" : "cannot get poll"});
+      return;
+    }
+
+    ctx.JSON(http.StatusOK, poll);
+    
+    // poll, valid := mockdb[id]
 
 
-  //   if !valid {
-  //     ctx.JSON(http.StatusNotFound, gin.H{"error" : "poll not found", "message" : fmt.Sprintf("Poll with ID %v not found", id)})
-  //   }else {
+    // if !valid {
+    //   ctx.JSON(http.StatusNotFound, gin.H{"error" : "poll not found", "message" : fmt.Sprintf("Poll with ID %v not found", id)})
+    // }else {
 
-  //     user, ok := getUserFromContext(ctx);
+    //   user, ok := getUserFromContext(ctx);
 
-  //     if !ok {
-  //       return;
-  //     }
+    //   if !ok {
+    //     return;
+    //   }
 
-  //     submitted:= hasUserSubmitted(user, id)
+    //   submitted:= hasUserSubmitted(user, id)
 
-  //     if !submitted {
-  //       ctx.JSON(http.StatusOK, poll)
-  //       return;
-  //     }
+    //   if !submitted {
+    //     ctx.JSON(http.StatusOK, poll)
+    //     return;
+    //   }
 
-  //     type PollWithSubmissions struct {
-  //       PollQuestion
-  //       Submissions [2] int `json:"submissions"` 
-  //     }
+    //   type PollWithSubmissions struct {
+    //     PollQuestion
+    //     Submissions [2] int `json:"submissions"` 
+    //   }
 
-  //     ctx.JSON(http.StatusOK, PollWithSubmissions{PollQuestion: poll, Submissions: poll.submissions})
+    //   ctx.JSON(http.StatusOK, PollWithSubmissions{PollQuestion: poll, Submissions: poll.submissions})
 
-  //   }
-  // })
+  })
 
   // r.GET("/polls",VerifyCookie(), func(ctx *gin.Context) {
     
@@ -299,5 +257,5 @@ func main() {
 
   // })
 
-  // r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+  r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
