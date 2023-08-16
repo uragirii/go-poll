@@ -41,39 +41,25 @@ func VerifyCookie (pollDb *db.Poll) gin.HandlerFunc {
   }
 }
 
-// func getUserFromContext(ctx  *gin.Context) (User, bool) {
-//   maybeUser, ok := ctx.Get("user")
+func getUserFromContext(ctx  *gin.Context) (poll.User, bool) {
+  maybeUser, ok := ctx.Get("user")
 
-//     if !ok {
-//       // not possible
-//       ctx.JSON(http.StatusInternalServerError, gin.H{"error" : "something went wrong", "message" : "Unable to recognise the user"})
-//       return User{}, false;
-//     }
+    if !ok {
+      // not possible
+      ctx.JSON(http.StatusInternalServerError, gin.H{"error" : "something went wrong", "message" : "Unable to recognise the user"})
+      return poll.User{}, false;
+    }
 
-//     user, ok := maybeUser.(User);
+    user, ok := maybeUser.(poll.User);
 
-//     if !ok {
-//        // not possible
-//        ctx.JSON(http.StatusInternalServerError, gin.H{"error" : "something went wrong", "message" : "Unable to recognise the user"})
-//        return User{}, false;
-//     }
+    if !ok {
+       // not possible
+       ctx.JSON(http.StatusInternalServerError, gin.H{"error" : "something went wrong", "message" : "Unable to recognise the user"})
+       return poll.User{}, false;
+    }
 
-//     return user, true
-// }
-
-// func hasUserSubmitted(user User, pollId string) bool {
-//   findInPollId:= func (slice []string, id string) bool  {
-//     for idx := range(slice){
-//       if slice[idx] == id{
-//         return true
-//       }
-//     }
-//     return false
-//   }
-
-//   return findInPollId(user.submittedPolls, pollId)
-
-// }
+    return user, true
+}
 
 func main() {
   isFlyEnv := os.Getenv("IS_FLY_ENV")
@@ -137,7 +123,7 @@ func main() {
   r.GET("/poll/:id", VerifyCookie(pollDb) ,func(ctx *gin.Context) {
     id:= ctx.Params.ByName("id")
 
-    poll, err := pollDb.Get(id);
+    pollData, err := pollDb.Get(id);
 
     if err == sql.ErrNoRows {
       ctx.JSON(http.StatusNotFound, gin.H{"error" : "poll not found", "message" : fmt.Sprintf("Poll with ID %v not found", id)})
@@ -150,58 +136,49 @@ func main() {
       return;
     }
 
-    ctx.JSON(http.StatusOK, poll);
-    
-    // poll, valid := mockdb[id]
+    user, ok := getUserFromContext(ctx);
 
+    if !ok {
+      return;
+    }
 
-    // if !valid {
-    //   ctx.JSON(http.StatusNotFound, gin.H{"error" : "poll not found", "message" : fmt.Sprintf("Poll with ID %v not found", id)})
-    // }else {
+    submitted:= user.HasSubmitted(id)
 
-    //   user, ok := getUserFromContext(ctx);
+    if !submitted {
+      ctx.JSON(http.StatusOK, pollData)
+      return;
+    }
 
-    //   if !ok {
-    //     return;
-    //   }
+    type PollWithSubmissions struct {
+      poll.PollQuestion
+      Submissions [2] int `json:"submissions"` 
+    }
 
-    //   submitted:= hasUserSubmitted(user, id)
-
-    //   if !submitted {
-    //     ctx.JSON(http.StatusOK, poll)
-    //     return;
-    //   }
-
-    //   type PollWithSubmissions struct {
-    //     PollQuestion
-    //     Submissions [2] int `json:"submissions"` 
-    //   }
-
-    //   ctx.JSON(http.StatusOK, PollWithSubmissions{PollQuestion: poll, Submissions: poll.submissions})
+    ctx.JSON(http.StatusOK, PollWithSubmissions{PollQuestion: pollData, Submissions: pollData.GetSubmissions()})
 
   })
 
-  // r.GET("/polls",VerifyCookie(), func(ctx *gin.Context) {
+  r.GET("/polls",VerifyCookie(pollDb), func(ctx *gin.Context) {
     
-  //   // Whats the best way of doing this??
-  //   type PollWithViewStatus struct {
-  //     PollQuestion
-  //     Viewed bool `json:"viewed"`
-  //   }
-  //   polls := make([]PollWithViewStatus, 0,len(mockdb))
+    // Whats the best way of doing this??
+    type PollWithViewStatus struct {
+      poll.PollQuestion
+      Submitted bool `json:"submitted"`
+    }
+    pollsWithViewStatus := make([]PollWithViewStatus, 0,len(polls))
     
-  //   user, ok := getUserFromContext(ctx)
+    user, ok := getUserFromContext(ctx)
 
-  //   if !ok {
-  //     return;
-  //   }
+    if !ok {
+      return;
+    }
 
-  //   for _, val :=range(mockdb) {
-  //     polls = append(polls, PollWithViewStatus{PollQuestion: val, Viewed: hasUserSubmitted(user, val.Id)})
-  //   }
-  //   ctx.JSON(http.StatusOK, polls)
+    for _, val :=range(polls) {
+      pollsWithViewStatus = append(pollsWithViewStatus, PollWithViewStatus{ Submitted: user.HasSubmitted(val.Id), PollQuestion: val})
+    }
+    ctx.JSON(http.StatusOK, pollsWithViewStatus)
 
-  // })
+  })
 
   // r.POST("/poll/:id", VerifyCookie(), func(ctx *gin.Context) {
   //   // verify poll
