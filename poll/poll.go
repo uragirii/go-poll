@@ -49,6 +49,10 @@ func ParseIds(options string) []string {
 	return split
 }
 
+func StrigifyIds(ids []string) string {
+	return strings.Join(ids, ",")
+}
+
 func (user *User) HasSubmitted(pollId string) bool {
 	for _, id := range user.SubmittedPolls {
 		if id == pollId {

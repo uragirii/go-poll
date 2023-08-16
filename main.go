@@ -180,59 +180,65 @@ func main() {
 
 	})
 
-	// r.POST("/poll/:id", VerifyCookie(), func(ctx *gin.Context) {
-	//   // verify poll
-	//   pollId:= ctx.Params.ByName("id");
+	r.POST("/poll/:id", VerifyCookie(pollDb), func(ctx *gin.Context) {
+		//   // verify poll
+		pollId := ctx.Params.ByName("id")
 
-	//   poll, valid := mockdb[pollId]
+		pollData, err := pollDb.Get(pollId)
 
-	//   user,ok := getUserFromContext(ctx);
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "not found", "message": fmt.Sprintf("Poll wih id %v not found", pollId)})
+			return
+		}
 
-	//   if !ok {
-	//     return;
-	//   }
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error", "message": "something went wrong"})
+			return
+		}
+		user, ok := getUserFromContext(ctx)
 
-	//   if hasUserSubmitted(user, pollId) {
-	//     ctx.JSON(http.StatusBadRequest, gin.H{"error" : "invalid data", "message": "user has already submitted poll"})
-	//     return;
-	//   }
+		if !ok {
+			return
+		}
 
-	//   type Submission struct {
-	//     SelectedOption int `json:"selectedOption" binding:"required" uri:"selectedOption"`
-	//   }
+		if user.HasSubmitted(pollId) {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid data", "message": "user has already submitted poll"})
+			return
+		}
 
-	//   if !valid {
-	//     ctx.JSON(http.StatusNotFound, gin.H{"error" : "poll not found", "message" : fmt.Sprintf("Poll with ID %v not found", pollId)})
-	//   }
+		type Submission struct {
+			SelectedOption int `json:"selectedOption" uri:"selectedOption"`
+		}
 
-	//   var submission Submission
+		var submission Submission
 
-	//   err:=ctx.BindJSON(&submission)
-	//   if err != nil{
-	//     fmt.Println(err);
-	//     ctx.JSON(http.StatusBadRequest, gin.H{"error":"invalid data", "message": "cannot parse the data"})
-	//     return;
-	//   }
+		err = ctx.BindJSON(&submission)
+		if err != nil {
+			fmt.Println(err)
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid data", "message": "cannot parse the data"})
+			return
+		}
 
-	//   optionIdx := submission.SelectedOption
+		optionIdx := submission.SelectedOption
 
-	//   if optionIdx > len(poll.submissions) {
-	//     ctx.JSON(http.StatusBadRequest, gin.H{"error" :"invalid data", "message" : "selectedOption cannot be more than available options"})
-	//   }
+		if optionIdx != 0 && optionIdx != 1 {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid data", "message": "selectedOption cannot be more than available options"})
+			return
+		}
 
-	//   poll.submissions[optionIdx] = poll.submissions[optionIdx]+1
+		submissions := pollData.GetSubmissions()
+		submissions[optionIdx] = submissions[optionIdx] + 1
 
-	//   mockdb[pollId] = poll
+		// how do to transcations?
+		if ok := pollDb.Update(pollId, submissions); ok {
+			if pollDb.UpdateUser(user.Id, append(user.SubmittedPolls, pollId)); ok {
+				ctx.JSON(http.StatusOK, gin.H{"data": submissions})
+				return
+			}
+		}
 
-	//   user.submittedPolls = append(user.submittedPolls, pollId)
-
-	//   mockUserdb[user.Id] = user;
-
-	//   fmt.Println(mockUserdb)
-
-	//   ctx.JSON(http.StatusOK, gin.H{"data": poll.submissions})
-
-	// })
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error", "message": "something went wrong while updating submissions"})
+	})
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }

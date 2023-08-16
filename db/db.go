@@ -136,6 +136,45 @@ func (p *Poll) GetUser(id string) (poll.User, error) {
 	return poll.User{Id: userId, SubmittedPolls: poll.ParseIds(submittedPolls)}, err
 }
 
+func (p *Poll) Update(id string, submissions [2]int) bool {
+	res, err := p.db.Exec("UPDATE PollQuestion SET option1Count=? , option2Count=? WHERE id=?;", submissions[0], submissions[1], id)
+
+	if err != nil {
+		fmt.Println("Error while updating PollQuestion")
+		return false
+	}
+
+	rowsAffected, err := res.RowsAffected()
+
+	if err != nil {
+		fmt.Println("Error while updaing PollQuestion")
+		return false
+	}
+
+	return rowsAffected == 1
+}
+
+func (p *Poll) UpdateUser(id string, submittedIds []string) bool {
+	stringifiedIds := poll.StrigifyIds(submittedIds)
+
+	res, err := p.db.Exec("UPDATE User SET selectedOptions=? WHERE id=?;", stringifiedIds, id)
+
+	if err != nil {
+		fmt.Println("Error while updating PollQuestion")
+		return false
+	}
+
+	rowsAffected, err := res.RowsAffected()
+
+	if err != nil {
+		fmt.Println("Error while updaing PollQuestion")
+		return false
+	}
+
+	return rowsAffected == 1
+
+}
+
 func (p *Poll) Get(id string) (poll.PollQuestion, error) {
 	row := p.db.QueryRow("SELECT * FROM PollQuestion WHERE id=?", id)
 
