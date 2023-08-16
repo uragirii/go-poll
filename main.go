@@ -80,8 +80,8 @@ func VerifyCookie () gin.HandlerFunc {
 
     if cookie, err := ctx.Cookie("x-user-id"); err == nil {
       if user, ok:= mockUserdb[cookie]; ok {
-        ctx.Next();
         ctx.Set("user", user)
+        ctx.Next();
         return
       }
       assingCookie()
@@ -92,6 +92,41 @@ func VerifyCookie () gin.HandlerFunc {
     ctx.Next()
     
   }
+}
+
+func getUserFromContext(ctx  *gin.Context) (User, bool) {
+  maybeUser, ok := ctx.Get("user")
+
+    if !ok {
+      // not possible
+      ctx.JSON(http.StatusInternalServerError, gin.H{"error" : "something went wrong", "message" : "Unable to recognise the user"})
+      return User{}, false;
+    }
+
+    user, ok := maybeUser.(User);
+
+    if !ok {
+       // not possible
+       ctx.JSON(http.StatusInternalServerError, gin.H{"error" : "something went wrong", "message" : "Unable to recognise the user"})
+       return User{}, false;
+    }
+
+    return user, true
+}
+
+func hasUserSubmitted(user User, pollId string) bool {
+  findInPollId:= func (slice []string, id string) bool  {
+    for idx := range(slice){
+      if slice[idx] == id{ 
+        return true
+      }
+    }
+    return false
+  }
+
+  return findInPollId(user.submittedPolls, pollId)
+
+  
 }
 
 func main() {
@@ -126,37 +161,70 @@ func main() {
     }
     polls := make([]PollWithViewStatus, 0,len(mockdb))
     
-    maybeUser, ok := ctx.Get("user")
+    user, ok := getUserFromContext(ctx)
 
     if !ok {
-      // not possible
-      ctx.JSON(http.StatusInternalServerError, gin.H{"error" : "something went wrong", "message" : "Unable to recognise the user"})
       return;
     }
 
-    user, ok := maybeUser.(User);
-
-    fmt.Println(maybeUser)
-
-    if !ok {
-       // not possible
-       ctx.JSON(http.StatusInternalServerError, gin.H{"error" : "something went wrong", "message" : "Unable to recognise the user"})
-       return
-    }
-
-    findInPollId:= func (slice []string, id string) bool  {
-      for idx := range(slice){
-        if slice[idx] == id{ 
-          return true
-        }
-      }
-      return false
-    }
-
     for _, val :=range(mockdb) {
-      polls = append(polls, PollWithViewStatus{PollQuestion: val, Viewed: findInPollId(user.submittedPolls, val.Id)})
+      polls = append(polls, PollWithViewStatus{PollQuestion: val, Viewed: hasUserSubmitted(user, val.Id)})
     }
     ctx.JSON(http.StatusOK, polls)
+
+  })
+
+  r.POST("/poll/:id", VerifyCookie(), func(ctx *gin.Context) {
+    // verify poll
+    pollId:= ctx.Params.ByName("id");
+
+    poll, valid := mockdb[pollId]
+
+    user,ok := getUserFromContext(ctx);
+
+    if !ok {
+      return;
+    }
+
+    if hasUserSubmitted(user, pollId) {
+      ctx.JSON(http.StatusBadRequest, gin.H{"error" : "invalid data", "message": "user has already submitted poll"})
+      return;
+    }
+
+    type Submission struct {
+      SelectedOption int `json:"selectedOption" binding:"required" uri:"selectedOption"`
+    }
+
+    if !valid {
+      ctx.JSON(http.StatusNotFound, gin.H{"error" : "poll not found", "message" : fmt.Sprintf("Poll with ID %v not found", pollId)})
+    }
+
+    var submission Submission
+
+    err:=ctx.BindJSON(&submission)
+    if err != nil{
+      fmt.Println(err);
+      ctx.JSON(http.StatusBadRequest, gin.H{"error":"invalid data", "message": "cannot parse the data"})
+      return;
+    }
+
+    optionIdx := submission.SelectedOption
+
+    if optionIdx > len(poll.submissions) {
+      ctx.JSON(http.StatusBadRequest, gin.H{"error" :"invalid data", "message" : "selectedOption cannot be more than available options"})
+    }
+
+    poll.submissions[optionIdx] = poll.submissions[optionIdx]+1
+
+    mockdb[pollId] = poll
+
+    user.submittedPolls = append(user.submittedPolls, pollId)
+
+    mockUserdb[user.Id] = user;
+
+    fmt.Println(mockUserdb)
+
+    ctx.JSON(http.StatusOK, gin.H{"data": poll.submissions})
 
   })
 
