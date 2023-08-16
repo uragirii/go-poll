@@ -28,19 +28,19 @@ type Poll struct {
 }
 
 func NewPoll(file string) (*Poll, error) {
-	db,err := sql.Open("sqlite3", file)
+	db, err := sql.Open("sqlite3", file)
 
 	if err != nil {
-		fmt.Println("Error opening connection to db ", file);
-		fmt.Println(err);
+		fmt.Println("Error opening connection to db ", file)
+		fmt.Println(err)
 		return nil, err
 	}
 
 	fmt.Printf("Database connection to '%v' completed\n", file)
 
-	if _,err := db.Exec(create); err !=nil {
-		fmt.Println("Error creating PollQuestion/User table");
-		return nil, err;
+	if _, err := db.Exec(create); err != nil {
+		fmt.Println("Error creating PollQuestion/User table")
+		return nil, err
 	}
 
 	fmt.Println("Created PollQuestion & User table")
@@ -52,28 +52,28 @@ func NewPoll(file string) (*Poll, error) {
 
 func (p *Poll) Create(question string, options [2]string) (int, error) {
 
-	res,err := p.db.Exec("INSERT INTO PollQuestion (question, option1, option2) VALUES (?, ?, ?);", question, options[0], options[1])
-	
-	if err !=nil {
-		fmt.Println("Error inserting into PollQuestion");
+	res, err := p.db.Exec("INSERT INTO PollQuestion (question, option1, option2) VALUES (?, ?, ?);", question, options[0], options[1])
+
+	if err != nil {
+		fmt.Println("Error inserting into PollQuestion")
 		return 0, nil
 	}
 
 	var id int64
 
-	if id,err = res.LastInsertId(); err != nil {
-		return 0,nil
+	if id, err = res.LastInsertId(); err != nil {
+		return 0, nil
 	}
-	
-	return int(id),nil
+
+	return int(id), nil
 }
 
 func (p *Poll) GetAll() ([]poll.PollQuestion, error) {
-	res, err:= p.db.Query("SELECT * FROM PollQuestion;");
-	
+	res, err := p.db.Query("SELECT * FROM PollQuestion;")
+
 	if err != nil {
-		fmt.Println("Error getting all the PollQuestions");
-		return nil, err;
+		fmt.Println("Error getting all the PollQuestions")
+		return nil, err
 	}
 
 	defer res.Close()
@@ -88,10 +88,10 @@ func (p *Poll) GetAll() ([]poll.PollQuestion, error) {
 		var option1Count int
 		var option2Count int
 
-		err = res.Scan(&data.Id, &data.Question, &option1, &option2, &option1Count, &option2Count);
+		err = res.Scan(&data.Id, &data.Question, &option1, &option2, &option1Count, &option2Count)
 
-		if err != nil{
-			fmt.Println("Error while scanning row of PollQuestion");
+		if err != nil {
+			fmt.Println("Error while scanning row of PollQuestion")
 			return nil, err
 		}
 		data.Options = [2]string{option1, option2}
@@ -101,20 +101,19 @@ func (p *Poll) GetAll() ([]poll.PollQuestion, error) {
 	return rows, nil
 }
 
-
 func (p *Poll) CreateUser() (poll.User, error) {
-	id:= poll.RandUserId();
-	_, err:= p.db.Exec("INSERT INTO User (id) VALUES (?)", id);
+	id := poll.RandUserId()
+	_, err := p.db.Exec("INSERT INTO User (id) VALUES (?)", id)
 
 	if err != nil {
-		fmt.Println("Error inserting a new user");
+		fmt.Println("Error inserting a new user")
 		return poll.User{}, err
 	}
 
-	user, err:= p.GetUser(id);
+	user, err := p.GetUser(id)
 
 	if err != nil {
-		fmt.Println("Error getting the created user");
+		fmt.Println("Error getting the created user")
 		return poll.User{}, err
 	}
 
@@ -122,25 +121,24 @@ func (p *Poll) CreateUser() (poll.User, error) {
 }
 
 func (p *Poll) GetUser(id string) (poll.User, error) {
-	row := p.db.QueryRow("SELECT * FROM User WHERE id=?", id);
+	row := p.db.QueryRow("SELECT * FROM User WHERE id=?", id)
 
-	var userId string;
-	var submittedPolls string;
+	var userId string
+	var submittedPolls string
 
-	err := row.Scan(&userId, &submittedPolls);
+	err := row.Scan(&userId, &submittedPolls)
 
 	if err == sql.ErrNoRows {
-		fmt.Printf("User with Id %v not found", id);
+		fmt.Printf("User with Id %v not found", id)
 		return poll.User{}, err
 	}
 
-
-	return poll.User{Id: userId ,SubmittedPolls: poll.ParseIds(submittedPolls) }, err
+	return poll.User{Id: userId, SubmittedPolls: poll.ParseIds(submittedPolls)}, err
 }
 
 func (p *Poll) Get(id string) (poll.PollQuestion, error) {
-	row := p.db.QueryRow("SELECT * FROM PollQuestion WHERE id=?", id);
-	
+	row := p.db.QueryRow("SELECT * FROM PollQuestion WHERE id=?", id)
+
 	data := poll.PollQuestion{}
 
 	var option1 string
@@ -148,10 +146,10 @@ func (p *Poll) Get(id string) (poll.PollQuestion, error) {
 	var option1Count int
 	var option2Count int
 
-	err := row.Scan(&data.Id, &data.Question, &option1, &option2, &option1Count, &option2Count);
+	err := row.Scan(&data.Id, &data.Question, &option1, &option2, &option1Count, &option2Count)
 
-	if err  == sql.ErrNoRows{
-		fmt.Printf("Poll with Id %v not found", id);
+	if err == sql.ErrNoRows {
+		fmt.Printf("Poll with Id %v not found", id)
 		return data, err
 	}
 	data.Options = [2]string{option1, option2}
@@ -159,4 +157,4 @@ func (p *Poll) Get(id string) (poll.PollQuestion, error) {
 
 	return data, err
 
-} 
+}
