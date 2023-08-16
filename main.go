@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"simple-server/db"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -130,123 +132,127 @@ func hasUserSubmitted(user User, pollId string) bool {
 }
 
 func main() {
-  mockDataSetup()
-  r := gin.Default()
+  // mockDataSetup()
+  // r := gin.Default()
+
+  db.NewPoll("sqldb/go.db");
+
+  return;
 
   // just here for testing purposes
-  r.GET("/ping", func(c *gin.Context) {
-    c.JSON(http.StatusOK, gin.H{
-      "message": "pong",
-    })
-  })
+  // r.GET("/ping", func(c *gin.Context) {
+  //   c.JSON(http.StatusOK, gin.H{
+  //     "message": "pong",
+  //   })
+  // })
 
-  r.GET("/poll/:id", VerifyCookie() ,func(ctx *gin.Context) {
-    id:= ctx.Params.ByName("id")
-    poll, valid := mockdb[id]
+  // r.GET("/poll/:id", VerifyCookie() ,func(ctx *gin.Context) {
+  //   id:= ctx.Params.ByName("id")
+  //   poll, valid := mockdb[id]
 
 
-    if !valid {
-      ctx.JSON(http.StatusNotFound, gin.H{"error" : "poll not found", "message" : fmt.Sprintf("Poll with ID %v not found", id)})
-    }else {
+  //   if !valid {
+  //     ctx.JSON(http.StatusNotFound, gin.H{"error" : "poll not found", "message" : fmt.Sprintf("Poll with ID %v not found", id)})
+  //   }else {
 
-      user, ok := getUserFromContext(ctx);
+  //     user, ok := getUserFromContext(ctx);
 
-      if !ok {
-        return;
-      }
+  //     if !ok {
+  //       return;
+  //     }
 
-      submitted:= hasUserSubmitted(user, id)
+  //     submitted:= hasUserSubmitted(user, id)
 
-      if !submitted {
-        ctx.JSON(http.StatusOK, poll)
-        return;
-      }
+  //     if !submitted {
+  //       ctx.JSON(http.StatusOK, poll)
+  //       return;
+  //     }
 
-      type PollWithSubmissions struct {
-        PollQuestion
-        Submissions [2] int `json:"submissions"` 
-      }
+  //     type PollWithSubmissions struct {
+  //       PollQuestion
+  //       Submissions [2] int `json:"submissions"` 
+  //     }
 
-      ctx.JSON(http.StatusOK, PollWithSubmissions{PollQuestion: poll, Submissions: poll.submissions})
+  //     ctx.JSON(http.StatusOK, PollWithSubmissions{PollQuestion: poll, Submissions: poll.submissions})
 
-    }
-  })
+  //   }
+  // })
 
-  r.GET("/polls",VerifyCookie(), func(ctx *gin.Context) {
+  // r.GET("/polls",VerifyCookie(), func(ctx *gin.Context) {
     
-    // Whats the best way of doing this??
-    type PollWithViewStatus struct {
-      PollQuestion
-      Viewed bool `json:"viewed"`
-    }
-    polls := make([]PollWithViewStatus, 0,len(mockdb))
+  //   // Whats the best way of doing this??
+  //   type PollWithViewStatus struct {
+  //     PollQuestion
+  //     Viewed bool `json:"viewed"`
+  //   }
+  //   polls := make([]PollWithViewStatus, 0,len(mockdb))
     
-    user, ok := getUserFromContext(ctx)
+  //   user, ok := getUserFromContext(ctx)
 
-    if !ok {
-      return;
-    }
+  //   if !ok {
+  //     return;
+  //   }
 
-    for _, val :=range(mockdb) {
-      polls = append(polls, PollWithViewStatus{PollQuestion: val, Viewed: hasUserSubmitted(user, val.Id)})
-    }
-    ctx.JSON(http.StatusOK, polls)
+  //   for _, val :=range(mockdb) {
+  //     polls = append(polls, PollWithViewStatus{PollQuestion: val, Viewed: hasUserSubmitted(user, val.Id)})
+  //   }
+  //   ctx.JSON(http.StatusOK, polls)
 
-  })
+  // })
 
-  r.POST("/poll/:id", VerifyCookie(), func(ctx *gin.Context) {
-    // verify poll
-    pollId:= ctx.Params.ByName("id");
+  // r.POST("/poll/:id", VerifyCookie(), func(ctx *gin.Context) {
+  //   // verify poll
+  //   pollId:= ctx.Params.ByName("id");
 
-    poll, valid := mockdb[pollId]
+  //   poll, valid := mockdb[pollId]
 
-    user,ok := getUserFromContext(ctx);
+  //   user,ok := getUserFromContext(ctx);
 
-    if !ok {
-      return;
-    }
+  //   if !ok {
+  //     return;
+  //   }
 
-    if hasUserSubmitted(user, pollId) {
-      ctx.JSON(http.StatusBadRequest, gin.H{"error" : "invalid data", "message": "user has already submitted poll"})
-      return;
-    }
+  //   if hasUserSubmitted(user, pollId) {
+  //     ctx.JSON(http.StatusBadRequest, gin.H{"error" : "invalid data", "message": "user has already submitted poll"})
+  //     return;
+  //   }
 
-    type Submission struct {
-      SelectedOption int `json:"selectedOption" binding:"required" uri:"selectedOption"`
-    }
+  //   type Submission struct {
+  //     SelectedOption int `json:"selectedOption" binding:"required" uri:"selectedOption"`
+  //   }
 
-    if !valid {
-      ctx.JSON(http.StatusNotFound, gin.H{"error" : "poll not found", "message" : fmt.Sprintf("Poll with ID %v not found", pollId)})
-    }
+  //   if !valid {
+  //     ctx.JSON(http.StatusNotFound, gin.H{"error" : "poll not found", "message" : fmt.Sprintf("Poll with ID %v not found", pollId)})
+  //   }
 
-    var submission Submission
+  //   var submission Submission
 
-    err:=ctx.BindJSON(&submission)
-    if err != nil{
-      fmt.Println(err);
-      ctx.JSON(http.StatusBadRequest, gin.H{"error":"invalid data", "message": "cannot parse the data"})
-      return;
-    }
+  //   err:=ctx.BindJSON(&submission)
+  //   if err != nil{
+  //     fmt.Println(err);
+  //     ctx.JSON(http.StatusBadRequest, gin.H{"error":"invalid data", "message": "cannot parse the data"})
+  //     return;
+  //   }
 
-    optionIdx := submission.SelectedOption
+  //   optionIdx := submission.SelectedOption
 
-    if optionIdx > len(poll.submissions) {
-      ctx.JSON(http.StatusBadRequest, gin.H{"error" :"invalid data", "message" : "selectedOption cannot be more than available options"})
-    }
+  //   if optionIdx > len(poll.submissions) {
+  //     ctx.JSON(http.StatusBadRequest, gin.H{"error" :"invalid data", "message" : "selectedOption cannot be more than available options"})
+  //   }
 
-    poll.submissions[optionIdx] = poll.submissions[optionIdx]+1
+  //   poll.submissions[optionIdx] = poll.submissions[optionIdx]+1
 
-    mockdb[pollId] = poll
+  //   mockdb[pollId] = poll
 
-    user.submittedPolls = append(user.submittedPolls, pollId)
+  //   user.submittedPolls = append(user.submittedPolls, pollId)
 
-    mockUserdb[user.Id] = user;
+  //   mockUserdb[user.Id] = user;
 
-    fmt.Println(mockUserdb)
+  //   fmt.Println(mockUserdb)
 
-    ctx.JSON(http.StatusOK, gin.H{"data": poll.submissions})
+  //   ctx.JSON(http.StatusOK, gin.H{"data": poll.submissions})
 
-  })
+  // })
 
-  r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+  // r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
