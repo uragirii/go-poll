@@ -20,8 +20,41 @@
       <div class="poll-container" data-poll-id="{{$poll.Id}}">
       <div class="poll-question">{{$poll.Question}}</div>
       <div class="poll-options-container">
-        <div class="option option-0">{{index $poll.Options 0}}</div>
-        <div class="option option-1">{{index $poll.Options 1}}</div>
+        {{ if $poll.Submitted }}
+        <div 
+          class="option option-0" 
+          style="width: {{index $poll.Submissions 0}}%;"  
+          data-poll-id="{{$poll.Id}}" 
+          data-option-index="0"
+          data-submitted="true"
+        >
+          {{index $poll.Options 0}}({{index $poll.Submissions 0}}%)
+        </div>
+        <div 
+          class="option option-1" 
+          style="width: {{index $poll.Submissions 1}}%;"  
+          data-poll-id="{{$poll.Id}}" 
+          data-option-index="1"
+          data-submitted="true"
+        >
+          {{index $poll.Options 1}}({{index $poll.Submissions 1}}%)
+        </div>
+        {{ else }}
+        <div 
+          class="option option-0" 
+          data-poll-id="{{$poll.Id}}" 
+          data-option-index="0"
+        >
+          {{index $poll.Options 0}}
+        </div>
+        <div 
+          class="option option-1" 
+          data-poll-id="{{$poll.Id}}" 
+          data-option-index="1"
+        >
+          {{index $poll.Options 1}}
+        </div>
+        {{end}}
       </div>
       </div>
     {{end}}

@@ -129,9 +129,17 @@ func main() {
 	r.GET("/", func(ctx *gin.Context) {
 		type PollWithViewStatus struct {
 			poll.PollQuestion
-			Submitted bool `json:"submitted"`
+			Submitted   bool   `json:"submitted"`
+			Submissions [2]int `json:"submissions"`
 		}
-		pollsWithViewStatus := make([]PollWithViewStatus, 0, len(polls))
+
+		updatedPolls, err := pollDb.GetAll()
+
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error", "message": "cannot fetch poll data"})
+		}
+
+		pollsWithViewStatus := make([]PollWithViewStatus, 0, len(updatedPolls))
 
 		user, ok := getUserFromContext(ctx)
 
@@ -139,8 +147,18 @@ func main() {
 			return
 		}
 
-		for _, val := range polls {
-			pollsWithViewStatus = append(pollsWithViewStatus, PollWithViewStatus{Submitted: user.HasSubmitted(val.Id), PollQuestion: val})
+		for _, val := range updatedPolls {
+			hasSubmitted := user.HasSubmitted(val.Id)
+			if hasSubmitted {
+				submissions := val.GetSubmissions()
+				fmt.Println(submissions)
+				pollsWithViewStatus = append(pollsWithViewStatus, PollWithViewStatus{
+					Submitted:    user.HasSubmitted(val.Id),
+					PollQuestion: val,
+					Submissions:  [2]int{submissions[0] * 100 / (submissions[0] + submissions[1]), submissions[1] * 100 / (submissions[0] + submissions[1])}})
+			} else {
+				pollsWithViewStatus = append(pollsWithViewStatus, PollWithViewStatus{Submitted: user.HasSubmitted(val.Id), PollQuestion: val})
+			}
 		}
 
 		ctx.HTML(http.StatusOK, "index.tmpl", pollsWithViewStatus)
@@ -196,7 +214,8 @@ func main() {
 		// Whats the best way of doing this??
 		type PollWithViewStatus struct {
 			poll.PollQuestion
-			Submitted bool `json:"submitted"`
+			Submitted   bool   `json:"submitted"`
+			Submissions [2]int `json:"submissions"`
 		}
 		pollsWithViewStatus := make([]PollWithViewStatus, 0, len(polls))
 
@@ -207,7 +226,16 @@ func main() {
 		}
 
 		for _, val := range polls {
-			pollsWithViewStatus = append(pollsWithViewStatus, PollWithViewStatus{Submitted: user.HasSubmitted(val.Id), PollQuestion: val})
+			hasSubmitted := user.HasSubmitted(val.Id)
+			if hasSubmitted {
+				submissions := val.GetSubmissions()
+				pollsWithViewStatus = append(pollsWithViewStatus, PollWithViewStatus{
+					Submitted:    user.HasSubmitted(val.Id),
+					PollQuestion: val,
+					Submissions:  [2]int{submissions[0] * 100 / (submissions[0] + submissions[1]), submissions[1] * 100 / (submissions[0] + submissions[1])}})
+			} else {
+				pollsWithViewStatus = append(pollsWithViewStatus, PollWithViewStatus{Submitted: user.HasSubmitted(val.Id), PollQuestion: val})
+			}
 		}
 		ctx.JSON(http.StatusOK, pollsWithViewStatus)
 
