@@ -113,6 +113,17 @@ func main() {
 
 	r := gin.Default()
 
+	r.Static("/static", "./static")
+	r.LoadHTMLGlob("templates/*")
+
+	r.Use(VerifyCookie(pollDb))
+
+	r.GET("/", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "index.tmpl", gin.H{
+			"title": "Main website",
+		})
+	})
+
 	// just here for testing purposes
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -120,7 +131,7 @@ func main() {
 		})
 	})
 
-	r.GET("/poll/:id", VerifyCookie(pollDb), func(ctx *gin.Context) {
+	r.GET("/poll/:id", func(ctx *gin.Context) {
 		id := ctx.Params.ByName("id")
 
 		pollData, err := pollDb.Get(id)
@@ -158,7 +169,7 @@ func main() {
 
 	})
 
-	r.GET("/polls", VerifyCookie(pollDb), func(ctx *gin.Context) {
+	r.GET("/polls", func(ctx *gin.Context) {
 
 		// Whats the best way of doing this??
 		type PollWithViewStatus struct {
@@ -180,7 +191,7 @@ func main() {
 
 	})
 
-	r.POST("/poll/:id", VerifyCookie(pollDb), func(ctx *gin.Context) {
+	r.POST("/poll/:id", func(ctx *gin.Context) {
 		//   // verify poll
 		pollId := ctx.Params.ByName("id")
 

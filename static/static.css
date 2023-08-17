@@ -1,0 +1,19 @@
+body {
+  background-color: #264653;
+  font-family: 'Open Sans', sans-serif;
+  display: flex;
+  justify-content: center;
+}
+
+h1 {
+  color: #F4A261;
+}
+
+#page-container {
+  max-width: 900px;
+  width: 100%;
+}
+
+p {
+  color: #E9C46A;
+}
