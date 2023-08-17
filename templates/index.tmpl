@@ -1,6 +1,7 @@
-<html>
+<html lang="en">
 <head>
   <title>Poll as you go!</title>
+  <link rel="icon" type="image/x-icon" href="/static/assets/images/favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
@@ -16,7 +17,13 @@
 
     <div id="polls-container">
     {{range $poll:= .}}
-      <div class="poll-container" data-poll-id="{{$poll.Id}}">{{$poll.Question}}</div>
+      <div class="poll-container" data-poll-id="{{$poll.Id}}">
+      <div class="poll-question">{{$poll.Question}}</div>
+      <div class="poll-options-container">
+        <div class="option option-0">{{index $poll.Options 0}}</div>
+        <div class="option option-1">{{index $poll.Options 1}}</div>
+      </div>
+      </div>
     {{end}}
     </div>
   </div>

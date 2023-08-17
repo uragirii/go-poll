@@ -1,5 +1,5 @@
 body {
-  background-color: #264653;
+  background-color: #0c0e0f;
   font-family: 'Open Sans', sans-serif;
   display: flex;
   justify-content: center;
@@ -17,4 +17,29 @@ h1 {
 
 p {
   color: #E9C46A;
+  opacity: 0.8;
+}
+
+.poll-container {
+  border : 2px solid #0d3747;
+  border-radius: 0.25em;
+  margin-bottom: 1em;
+  color: #E76F51;
+}
+
+.poll-question {
+  padding:1em;
+  text-align: center;
+}
+
+.poll-options-container {
+  display:flex;
+  justify-content:space-between;
+}
+.poll-options-container > div {
+  text-align:center;
+  flex:1;
+  padding: 1em;
+  border: 1px solid #0d3747;
+  cursor:pointer;
 }
