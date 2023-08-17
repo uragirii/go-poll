@@ -211,13 +211,18 @@ func main() {
 
 	r.GET("/polls", func(ctx *gin.Context) {
 
+		updatedPolls, err := pollDb.GetAll()
+
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error", "message": "cannot fetch poll data"})
+		}
 		// Whats the best way of doing this??
 		type PollWithViewStatus struct {
 			poll.PollQuestion
 			Submitted   bool   `json:"submitted"`
 			Submissions [2]int `json:"submissions"`
 		}
-		pollsWithViewStatus := make([]PollWithViewStatus, 0, len(polls))
+		pollsWithViewStatus := make([]PollWithViewStatus, 0, len(updatedPolls))
 
 		user, ok := getUserFromContext(ctx)
 
@@ -225,7 +230,7 @@ func main() {
 			return
 		}
 
-		for _, val := range polls {
+		for _, val := range updatedPolls {
 			hasSubmitted := user.HasSubmitted(val.Id)
 			if hasSubmitted {
 				submissions := val.GetSubmissions()
