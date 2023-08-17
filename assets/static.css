@@ -12,6 +12,7 @@ h1 {
 #page-container {
   max-width: 900px;
   width: 100%;
+  padding: 1em 1.5em;
 }
 
 p {

@@ -2,7 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"embed"
 	"fmt"
+	"html/template"
 	"net/http"
 	"os"
 
@@ -11,6 +13,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+//go:embed templates/* assets/*
+var content embed.FS
 
 func VerifyCookie(pollDb *db.Poll) gin.HandlerFunc {
 
@@ -113,15 +118,32 @@ func main() {
 
 	r := gin.Default()
 
-	r.Static("/static", "./static")
-	r.LoadHTMLGlob("templates/*")
+	templ := template.Must(template.New("").ParseFS(content, "templates/*.tmpl"))
+	r.SetHTMLTemplate(templ)
+
+	// example: /public/assets/images/example.png
+	r.StaticFS("/static", http.FS(content))
 
 	r.Use(VerifyCookie(pollDb))
 
-	r.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.tmpl", gin.H{
-			"title": "Main website",
-		})
+	r.GET("/", func(ctx *gin.Context) {
+		type PollWithViewStatus struct {
+			poll.PollQuestion
+			Submitted bool `json:"submitted"`
+		}
+		pollsWithViewStatus := make([]PollWithViewStatus, 0, len(polls))
+
+		user, ok := getUserFromContext(ctx)
+
+		if !ok {
+			return
+		}
+
+		for _, val := range polls {
+			pollsWithViewStatus = append(pollsWithViewStatus, PollWithViewStatus{Submitted: user.HasSubmitted(val.Id), PollQuestion: val})
+		}
+
+		ctx.HTML(http.StatusOK, "index.tmpl", pollsWithViewStatus)
 	})
 
 	// just here for testing purposes
