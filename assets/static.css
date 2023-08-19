@@ -48,6 +48,7 @@ p {
   border-bottom-width: 0;
   border-left-width: 0;
   position: relative;
+  transition: width 300ms;
 }
 
 .option-0 {
